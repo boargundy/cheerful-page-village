@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useToast } from "@/components/ui/use-toast";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -14,7 +13,9 @@ interface Todo {
   id: string;
   text: string;
   completed: boolean;
-  favorite?: boolean; // Make favorite optional since it might not be in the types
+  favorite: boolean;
+  created_at?: string;
+  updated_at?: string;
 }
 
 const TodoApp = () => {
@@ -24,15 +25,14 @@ const TodoApp = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  // Fetch todos from Supabase
   const { data: todos = [], isLoading } = useQuery({
     queryKey: ['todos'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('todos')
         .select('*')
-        .order('favorite', { ascending: false }) // First show favorites
-        .order('created_at', { ascending: false }); // Then by creation date
+        .order('favorite', { ascending: false })
+        .order('created_at', { ascending: false });
       
       if (error) {
         toast({
@@ -47,7 +47,6 @@ const TodoApp = () => {
     }
   });
 
-  // Add a new todo
   const addTodoMutation = useMutation({
     mutationFn: async (text: string) => {
       const { data, error } = await supabase
@@ -75,7 +74,6 @@ const TodoApp = () => {
     }
   });
 
-  // Toggle todo completion status
   const toggleTodoMutation = useMutation({
     mutationFn: async ({ id, completed }: { id: string; completed: boolean }) => {
       const { error } = await supabase
@@ -97,7 +95,6 @@ const TodoApp = () => {
     }
   });
 
-  // Toggle favorite status
   const toggleFavoriteMutation = useMutation({
     mutationFn: async ({ id, favorite }: { id: string; favorite: boolean }) => {
       const { error } = await supabase
@@ -123,7 +120,6 @@ const TodoApp = () => {
     }
   });
 
-  // Delete a todo
   const deleteTodoMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
@@ -149,7 +145,6 @@ const TodoApp = () => {
     }
   });
 
-  // Update a todo
   const updateTodoMutation = useMutation({
     mutationFn: async ({ id, text }: { id: string; text: string }) => {
       const { error } = await supabase
