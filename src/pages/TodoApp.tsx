@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Plus, Trash, Edit, Save, X, Loader2 } from "lucide-react";
+import { Plus, Trash, Edit, Save, X, Loader2, Star } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -14,6 +14,7 @@ interface Todo {
   id: string;
   text: string;
   completed: boolean;
+  favorite?: boolean; // Make favorite optional since it might not be in the types
 }
 
 const TodoApp = () => {
@@ -30,7 +31,8 @@ const TodoApp = () => {
       const { data, error } = await supabase
         .from('todos')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('favorite', { ascending: false }) // First show favorites
+        .order('created_at', { ascending: false }); // Then by creation date
       
       if (error) {
         toast({
@@ -50,7 +52,7 @@ const TodoApp = () => {
     mutationFn: async (text: string) => {
       const { data, error } = await supabase
         .from('todos')
-        .insert([{ text, completed: false }])
+        .insert([{ text, completed: false, favorite: false }])
         .select();
         
       if (error) throw error;
@@ -89,6 +91,32 @@ const TodoApp = () => {
     onError: (error: any) => {
       toast({
         title: "Error updating todo",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Toggle favorite status
+  const toggleFavoriteMutation = useMutation({
+    mutationFn: async ({ id, favorite }: { id: string; favorite: boolean }) => {
+      const { error } = await supabase
+        .from('todos')
+        .update({ favorite, updated_at: new Date().toISOString() })
+        .eq('id', id);
+        
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['todos'] });
+      toast({
+        title: "Favorite updated",
+        description: "Todo favorite status updated successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error updating favorite",
         description: error.message,
         variant: "destructive",
       });
@@ -163,6 +191,10 @@ const TodoApp = () => {
 
   const toggleTodo = (id: string, completed: boolean) => {
     toggleTodoMutation.mutate({ id, completed: !completed });
+  };
+
+  const toggleFavorite = (id: string, favorite: boolean = false) => {
+    toggleFavoriteMutation.mutate({ id, favorite: !favorite });
   };
 
   const deleteTodo = (id: string) => {
@@ -295,6 +327,15 @@ const TodoApp = () => {
                           </label>
                         </div>
                         <div className="flex gap-1">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => toggleFavorite(todo.id, todo.favorite)}
+                            disabled={toggleFavoriteMutation.isPending}
+                            className={todo.favorite ? "text-yellow-500" : ""}
+                          >
+                            <Star className="h-4 w-4" fill={todo.favorite ? "currentColor" : "none"} />
+                          </Button>
                           <Button
                             size="sm"
                             variant="ghost"
