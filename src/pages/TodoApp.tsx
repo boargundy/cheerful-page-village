@@ -1,12 +1,14 @@
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useToast } from "@/components/ui/use-toast";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Plus, Trash, Edit, Save, X } from "lucide-react";
+import { Plus, Trash, Edit, Save, X, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 interface Todo {
   id: string;
@@ -15,11 +17,136 @@ interface Todo {
 }
 
 const TodoApp = () => {
-  const [todos, setTodos] = useState<Todo[]>([]);
   const [newTodo, setNewTodo] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  
+  // Fetch todos from Supabase
+  const { data: todos = [], isLoading } = useQuery({
+    queryKey: ['todos'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('todos')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        toast({
+          title: "Error fetching todos",
+          description: error.message,
+          variant: "destructive",
+        });
+        return [];
+      }
+      
+      return data as Todo[];
+    }
+  });
+
+  // Add a new todo
+  const addTodoMutation = useMutation({
+    mutationFn: async (text: string) => {
+      const { data, error } = await supabase
+        .from('todos')
+        .insert([{ text, completed: false }])
+        .select();
+        
+      if (error) throw error;
+      return data[0];
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['todos'] });
+      setNewTodo("");
+      toast({
+        title: "Todo added",
+        description: "Your new todo has been added successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error adding todo",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Toggle todo completion status
+  const toggleTodoMutation = useMutation({
+    mutationFn: async ({ id, completed }: { id: string; completed: boolean }) => {
+      const { error } = await supabase
+        .from('todos')
+        .update({ completed, updated_at: new Date().toISOString() })
+        .eq('id', id);
+        
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['todos'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error updating todo",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Delete a todo
+  const deleteTodoMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('todos')
+        .delete()
+        .eq('id', id);
+        
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['todos'] });
+      toast({
+        title: "Todo deleted",
+        description: "Your todo has been deleted",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error deleting todo",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Update a todo
+  const updateTodoMutation = useMutation({
+    mutationFn: async ({ id, text }: { id: string; text: string }) => {
+      const { error } = await supabase
+        .from('todos')
+        .update({ text, updated_at: new Date().toISOString() })
+        .eq('id', id);
+        
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['todos'] });
+      setEditingId(null);
+      toast({
+        title: "Todo updated",
+        description: "Your todo has been updated successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error updating todo",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
 
   const addTodo = () => {
     if (newTodo.trim() === "") {
@@ -31,36 +158,15 @@ const TodoApp = () => {
       return;
     }
 
-    const todo: Todo = {
-      id: crypto.randomUUID(),
-      text: newTodo,
-      completed: false,
-    };
-
-    setTodos([...todos, todo]);
-    setNewTodo("");
-    
-    toast({
-      title: "Todo added",
-      description: "Your new todo has been added successfully",
-    });
+    addTodoMutation.mutate(newTodo);
   };
 
-  const toggleTodo = (id: string) => {
-    setTodos(
-      todos.map((todo) =>
-        todo.id === id ? { ...todo, completed: !todo.completed } : todo
-      )
-    );
+  const toggleTodo = (id: string, completed: boolean) => {
+    toggleTodoMutation.mutate({ id, completed: !completed });
   };
 
   const deleteTodo = (id: string) => {
-    setTodos(todos.filter((todo) => todo.id !== id));
-    
-    toast({
-      title: "Todo deleted",
-      description: "Your todo has been deleted",
-    });
+    deleteTodoMutation.mutate(id);
   };
 
   const startEditing = (todo: Todo) => {
@@ -83,17 +189,7 @@ const TodoApp = () => {
       return;
     }
 
-    setTodos(
-      todos.map((todo) =>
-        todo.id === id ? { ...todo, text: editText } : todo
-      )
-    );
-    setEditingId(null);
-    
-    toast({
-      title: "Todo updated",
-      description: "Your todo has been updated successfully",
-    });
+    updateTodoMutation.mutate({ id, text: editText });
   };
 
   return (
@@ -114,9 +210,17 @@ const TodoApp = () => {
                 if (e.key === "Enter") addTodo();
               }}
               className="flex-1"
+              disabled={addTodoMutation.isPending}
             />
-            <Button onClick={addTodo}>
-              <Plus className="mr-2" />
+            <Button 
+              onClick={addTodo} 
+              disabled={addTodoMutation.isPending}
+            >
+              {addTodoMutation.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Plus className="mr-2" />
+              )}
               Add
             </Button>
           </div>
@@ -128,7 +232,11 @@ const TodoApp = () => {
           <CardTitle>Your Todos</CardTitle>
         </CardHeader>
         <CardContent>
-          {todos.length === 0 ? (
+          {isLoading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : todos.length === 0 ? (
             <p className="text-center text-muted-foreground py-8">
               No todos yet. Add one above!
             </p>
@@ -144,15 +252,25 @@ const TodoApp = () => {
                           onChange={(e) => setEditText(e.target.value)}
                           className="flex-1"
                           autoFocus
+                          disabled={updateTodoMutation.isPending}
                         />
-                        <Button size="sm" onClick={() => saveTodo(todo.id)}>
-                          <Save className="mr-1 h-4 w-4" />
+                        <Button 
+                          size="sm" 
+                          onClick={() => saveTodo(todo.id)}
+                          disabled={updateTodoMutation.isPending}
+                        >
+                          {updateTodoMutation.isPending ? (
+                            <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                          ) : (
+                            <Save className="mr-1 h-4 w-4" />
+                          )}
                           Save
                         </Button>
                         <Button
                           size="sm"
                           variant="outline"
                           onClick={cancelEditing}
+                          disabled={updateTodoMutation.isPending}
                         >
                           <X className="mr-1 h-4 w-4" />
                           Cancel
@@ -163,8 +281,9 @@ const TodoApp = () => {
                         <div className="flex items-center gap-3 flex-1">
                           <Checkbox
                             checked={todo.completed}
-                            onCheckedChange={() => toggleTodo(todo.id)}
+                            onCheckedChange={() => toggleTodo(todo.id, todo.completed)}
                             id={`todo-${todo.id}`}
+                            disabled={toggleTodoMutation.isPending}
                           />
                           <label
                             htmlFor={`todo-${todo.id}`}
@@ -180,6 +299,7 @@ const TodoApp = () => {
                             size="sm"
                             variant="ghost"
                             onClick={() => startEditing(todo)}
+                            disabled={editingId !== null}
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
@@ -187,8 +307,13 @@ const TodoApp = () => {
                             size="sm"
                             variant="ghost"
                             onClick={() => deleteTodo(todo.id)}
+                            disabled={deleteTodoMutation.isPending}
                           >
-                            <Trash className="h-4 w-4" />
+                            {deleteTodoMutation.isPending && deleteTodoMutation.variables === todo.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Trash className="h-4 w-4" />
+                            )}
                           </Button>
                         </div>
                       </>
