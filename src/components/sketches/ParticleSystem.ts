@@ -1,139 +1,119 @@
 
 import p5 from "p5";
 
-class Particle {
-  p: p5;
-  position: p5.Vector;
-  velocity: p5.Vector;
-  acceleration: p5.Vector;
+interface Particle {
+  pos: p5.Vector;
+  vel: p5.Vector;
+  acc: p5.Vector;
   color: p5.Color;
+  alpha: number;
   size: number;
   lifespan: number;
-  maxSpeed: number;
-
-  constructor(p: p5, x: number, y: number) {
-    this.p = p;
-    this.position = p.createVector(x, y);
-    this.velocity = p.createVector(p.random(-1, 1), p.random(-1, 1));
-    this.acceleration = p.createVector(0, 0);
-    this.color = p.color(p.random(150, 255), p.random(150, 255), p.random(200, 255), p.random(150, 200));
-    this.size = p.random(2, 8);
-    this.lifespan = 255;
-    this.maxSpeed = 2;
-  }
-
-  applyForce(force: p5.Vector) {
-    this.acceleration.add(force);
-  }
-
-  update() {
-    this.velocity.add(this.acceleration);
-    this.velocity.limit(this.maxSpeed);
-    this.position.add(this.velocity);
-    this.acceleration.mult(0);
-    this.lifespan -= 2;
-  }
-
-  display() {
-    this.p.noStroke();
-    this.p.fill(this.color);
-    this.p.circle(this.position.x, this.position.y, this.size);
-  }
-
-  isDead() {
-    return this.lifespan <= 0;
-  }
-
-  edges() {
-    const p = this.p;
-    if (this.position.x > p.width) {
-      this.position.x = 0;
-    } else if (this.position.x < 0) {
-      this.position.x = p.width;
-    }
-    
-    if (this.position.y > p.height) {
-      this.position.y = 0;
-    } else if (this.position.y < 0) {
-      this.position.y = p.height;
-    }
-  }
+  maxLifespan: number;
 }
 
-export const createParticleSystemSketch = (options = {}) => {
-  return (p: p5) => {
-    let particles: Particle[] = [];
-    let mouseAttraction = false;
+export default function ParticleSystem(p: p5) {
+  // System properties
+  let particles: Particle[] = [];
+  let maxParticles = 200;
+  let emissionRate = 4;
+  let mousePos: p5.Vector;
+  let lastMousePos: p5.Vector;
+  let colorPalette: p5.Color[] = [];
+  
+  p.setup = () => {
+    const canvas = p.createCanvas(p.windowWidth, p.windowHeight);
+    canvas.style('display', 'block');
+    p.colorMode(p.HSB, 360, 100, 100, 1);
     
-    p.setup = () => {
-      p.createCanvas(p.windowWidth, p.windowHeight);
-      p.colorMode(p.HSB, 255);
-      
-      // Initialize with some particles
-      for (let i = 0; i < 50; i++) {
-        particles.push(new Particle(p, p.random(p.width), p.random(p.height)));
-      }
-    };
+    // Create color palette
+    colorPalette = [
+      p.color(210, 90, 100), // Blue
+      p.color(150, 80, 100), // Teal
+      p.color(270, 80, 100), // Purple
+      p.color(330, 80, 100), // Pink
+    ];
     
-    p.draw = () => {
-      p.clear();
-      
-      // Add new particles occasionally
-      if (p.frameCount % 5 === 0) {
-        particles.push(new Particle(p, p.random(p.width), p.random(p.height)));
-      }
-      
-      // Create a force towards the mouse when pressed
-      if (mouseAttraction) {
-        let mousePos = p.createVector(p.mouseX, p.mouseY);
-        
-        particles.forEach(particle => {
-          let force = p5.Vector.sub(mousePos, particle.position);
-          let distance = force.mag();
-          distance = p.constrain(distance, 5, 100);
-          force.normalize();
-          force.mult(0.5 / (distance * 0.01));
-          particle.applyForce(force);
-        });
-      }
-      
-      // Update and draw all particles
-      for (let i = particles.length - 1; i >= 0; i--) {
-        particles[i].update();
-        particles[i].edges();
-        particles[i].display();
-        
-        // Connect nearby particles with lines
-        for (let j = i - 1; j >= 0; j--) {
-          let d = p5.Vector.dist(particles[i].position, particles[j].position);
-          if (d < 100) {
-            p.stroke(255, 100 - d);
-            p.line(
-              particles[i].position.x, 
-              particles[i].position.y, 
-              particles[j].position.x, 
-              particles[j].position.y
-            );
-          }
-        }
-        
-        // Remove dead particles
-        if (particles[i].isDead()) {
-          particles.splice(i, 1);
-        }
-      }
-    };
-    
-    p.windowResized = () => {
-      p.resizeCanvas(p.windowWidth, p.windowHeight);
-    };
-    
-    p.mousePressed = () => {
-      mouseAttraction = true;
-    };
-    
-    p.mouseReleased = () => {
-      mouseAttraction = false;
-    };
+    mousePos = p.createVector(p.width / 2, p.height / 2);
+    lastMousePos = p.createVector(p.width / 2, p.height / 2);
   };
-};
+
+  p.draw = () => {
+    p.clear();
+    
+    // Update mouse position with easing
+    lastMousePos = p.createVector(mousePos.x, mousePos.y);
+    mousePos.x = p.lerp(mousePos.x, p.mouseX, 0.2);
+    mousePos.y = p.lerp(mousePos.y, p.mouseY, 0.2);
+    
+    // Calculate mouse velocity for dynamic particle emission
+    const mouseVel = p5.Vector.sub(mousePos, lastMousePos);
+    const speed = mouseVel.mag();
+    
+    // Adjust emission based on mouse movement
+    const currentEmissionRate = p.map(speed, 0, 50, 1, emissionRate * 3);
+    
+    // Emit new particles
+    if (particles.length < maxParticles) {
+      for (let i = 0; i < currentEmissionRate; i++) {
+        if (particles.length < maxParticles) {
+          addParticle();
+        }
+      }
+    }
+    
+    // Update and display all particles
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const particle = particles[i];
+      
+      // Update
+      particle.vel.add(particle.acc);
+      particle.pos.add(particle.vel);
+      particle.lifespan -= 2;
+      particle.alpha = p.map(particle.lifespan, 0, particle.maxLifespan, 0, 1);
+      
+      // Display
+      p.noStroke();
+      const c = particle.color;
+      p.fill(p.hue(c), p.saturation(c), p.brightness(c), particle.alpha);
+      p.circle(particle.pos.x, particle.pos.y, particle.size);
+      
+      // Remove dead particles
+      if (particle.lifespan <= 0) {
+        particles.splice(i, 1);
+      }
+    }
+  };
+  
+  p.mouseMoved = () => {
+    // Update the mouse position when it moves
+    mousePos.x = p.mouseX;
+    mousePos.y = p.mouseY;
+  };
+  
+  function addParticle() {
+    // Add variation to particle spawn position
+    const offset = p.createVector(
+      p.random(-10, 10),
+      p.random(-10, 10)
+    );
+    
+    // Create new particle
+    const particle: Particle = {
+      pos: p5.Vector.add(mousePos, offset),
+      vel: p.createVector(p.random(-1, 1), p.random(-1, 1)).mult(p.random(0.5, 2)),
+      acc: p.createVector(0, 0),
+      color: colorPalette[Math.floor(p.random(colorPalette.length))],
+      alpha: 1,
+      size: p.random(3, 15),
+      lifespan: p.random(40, 100),
+      maxLifespan: p.random(40, 100)
+    };
+    
+    particles.push(particle);
+  }
+  
+  p.windowResized = () => {
+    p.resizeCanvas(p.windowWidth, p.windowHeight);
+  };
+}
