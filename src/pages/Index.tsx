@@ -1,6 +1,5 @@
-
 import { motion } from "framer-motion";
-import { ChevronDown, Zap, Shield, Globe } from "lucide-react";
+import { ChevronDown, Zap, Shield, Globe, Mail, Phone, MapPin, Github, Twitter, Instagram } from "lucide-react";
 import { useEffect, useState } from "react";
 import P5Animation from "@/components/P5Animation";
 import { createParticleSystemSketch } from "@/components/sketches/ParticleSystem";
@@ -286,6 +285,73 @@ const Index = () => {
           </motion.div>
         </div>
       </section>
+
+      {/* Footer */}
+      <footer className="bg-gradient-to-t from-background/90 to-background/60 border-t border-border/40">
+        <div className="max-w-6xl mx-auto px-6 py-12 md:py-16">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+            <div className="col-span-1 md:col-span-2">
+              <h3 className="text-xl font-bold mb-4">Company Name</h3>
+              <p className="text-muted-foreground mb-4 max-w-sm">
+                Our mission is to create innovative solutions that transform the way people interact with technology.
+              </p>
+              <div className="flex space-x-4">
+                <a href="#" className="text-muted-foreground hover:text-primary transition-colors">
+                  <Github className="w-5 h-5" />
+                  <span className="sr-only">GitHub</span>
+                </a>
+                <a href="#" className="text-muted-foreground hover:text-primary transition-colors">
+                  <Twitter className="w-5 h-5" />
+                  <span className="sr-only">Twitter</span>
+                </a>
+                <a href="#" className="text-muted-foreground hover:text-primary transition-colors">
+                  <Instagram className="w-5 h-5" />
+                  <span className="sr-only">Instagram</span>
+                </a>
+              </div>
+            </div>
+            
+            <div>
+              <h3 className="text-xl font-bold mb-4">Company</h3>
+              <ul className="space-y-2">
+                <li><a href="#" className="text-muted-foreground hover:text-primary transition-colors">About</a></li>
+                <li><a href="#" className="text-muted-foreground hover:text-primary transition-colors">Careers</a></li>
+                <li><a href="#" className="text-muted-foreground hover:text-primary transition-colors">Blog</a></li>
+                <li><a href="#" className="text-muted-foreground hover:text-primary transition-colors">Press</a></li>
+              </ul>
+            </div>
+            
+            <div>
+              <h3 className="text-xl font-bold mb-4">Contact</h3>
+              <ul className="space-y-2">
+                <li className="flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-muted-foreground">123 Street, City, Country</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Mail className="w-4 h-4 text-muted-foreground" />
+                  <a href="mailto:info@example.com" className="text-muted-foreground hover:text-primary transition-colors">info@example.com</a>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Phone className="w-4 h-4 text-muted-foreground" />
+                  <a href="tel:+1234567890" className="text-muted-foreground hover:text-primary transition-colors">+123 456 7890</a>
+                </li>
+              </ul>
+            </div>
+          </div>
+          
+          <div className="border-t border-border/30 mt-8 pt-8 flex flex-col md:flex-row justify-between items-center">
+            <p className="text-sm text-muted-foreground mb-4 md:mb-0">
+              © {new Date().getFullYear()} Company Name. All rights reserved.
+            </p>
+            <div className="flex gap-4 text-sm">
+              <a href="#" className="text-muted-foreground hover:text-primary transition-colors">Privacy Policy</a>
+              <a href="#" className="text-muted-foreground hover:text-primary transition-colors">Terms of Service</a>
+              <a href="#" className="text-muted-foreground hover:text-primary transition-colors">Cookies</a>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 };
